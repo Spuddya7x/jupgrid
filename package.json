@@ -19,6 +19,8 @@
 		"fmt": "prettier --write ."
 	},
 	"dependencies": {
+		"@jup-ag/api": "^6.0.11",
+		"@jup-ag/core": "^4.0.0-beta.21",
 		"@jup-ag/limit-order-sdk": "^0.1.10",
 		"@project-serum/anchor": "^0.26.0",
 		"@solana/spl-token": "^0.4.0",
