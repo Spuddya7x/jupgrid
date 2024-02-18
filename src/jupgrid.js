@@ -103,12 +103,12 @@ let {
 	initUsdBalanceB = 0,
 	initUsdTotalBalance = 0,
 	currUsdTotalBalance = 0,
-	marketPercentageChange = 0,
 	balancePercentageChange = 0,
 	startTime = new Date(),
 	profitA = null,
 	profitB = null,
 	totalProfit = null,
+	lastPrice = 0,
 } = {};
 
 let userData = {
@@ -630,7 +630,7 @@ async function monitorPrice(
 
 			const response = await axios.get(quoteurl, { params: queryParams });
 			const newPrice = response.data.outAmount;
-			marketPercentageChange = ((newPrice - startPrice) / startPrice) * 100;
+			let marketPercentageChange = ((newPrice - lastPrice) / lastPrice) * 100;
 			console.log(
 				`\nSell Price : ${colors.tokenB(sellInput / Math.pow(10, selectedDecimalsB))} ${colors.tokenB(selectedTokenB)} For ${colors.tokenA(buyInput / Math.pow(10, selectedDecimalsA))} ${colors.tokenA(selectedTokenA)}`,
 			);
@@ -642,7 +642,7 @@ async function monitorPrice(
 			);
 
 			console.log(
-				`Current Market Percentage: ${(marketPercentageChange > 0) ? colors.profit(`${marketPercentageChange.toFixed(5)}% \u{1F4C8}`) : colors.loss(`${marketPercentageChange.toFixed(5)}% \u{1F4C9}`)}\n`
+				`Market Change Since Last TX: ${(marketPercentageChange > 0) ? colors.profit(`${marketPercentageChange.toFixed(5)}% \u{1F4C8}`) : colors.loss(`${marketPercentageChange.toFixed(5)}% \u{1F4C9}`)}\n`
 			);
 
 			await checkOpenOrders();
@@ -713,6 +713,14 @@ async function setOrders() {
 	let base1 = Keypair.generate();
 	console.log("");
 	let base2 = Keypair.generate();
+	const queryParams = {
+		inputMint: selectedAddressA,
+		outputMint: selectedAddressB,
+		amount: tradeSizeInLamports,
+		slippageBps: 0,
+	};
+	const response = await axios.get(quoteurl, { params: queryParams });
+	lastPrice = response.data.outAmount;
 	try {
 		async function sendTransactionAsync(
 			input,
@@ -915,6 +923,7 @@ async function checkOpenOrders() {
 		console.log(
 			`Balance Percent Change Since Start: ${balancePercentageChange.toFixed(2)}%`,
 		);
+		let marketPercentageChange = ((newPrice - startPrice) / startPrice) * 100;
 		console.log(
 			`Market Percent Change Since Start: ${marketPercentageChange.toFixed(2)}%`,
 		);
