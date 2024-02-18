@@ -9,10 +9,11 @@ const fs = require("fs");
 const fsp = require("fs").promises;
 const readline = require("readline");
 const dotenv = require("dotenv");
+const colors = require("colors");
 
 function envload() {
 	const envFilePath = ".env";
-	const defaultEnvContent = `# Please fill in the following environment variables\nRPC_URL\nPRIVATE_KEY=`;
+	const defaultEnvContent = `# Please fill in the following environment variables\nRPC_URL=\nPRIVATE_KEY=`;
 	try {
 		if (!fs.existsSync(envFilePath)) {
 			fs.writeFileSync(envFilePath, defaultEnvContent, "utf8");
@@ -98,9 +99,7 @@ let {
 	sellInput = null,
 	sellOutput = null,
 	recalcs = 0,
-	initBalanceA = 0,
 	initUsdBalanceA = 0,
-	initBalanceB = 0,
 	initUsdBalanceB = 0,
 	initUsdTotalBalance = 0,
 	currUsdTotalBalance = 0,
@@ -118,6 +117,15 @@ let userData = {
 	tradeSize: null,
 	spread: null,
 };
+
+colors.setTheme({
+	profit: 'green',
+	loss: 'red',
+	warn: 'yellow',
+	error: 'brightRed',
+	tokenA: 'blue',
+	tokenB: 'magenta'
+})
 
 function delay(ms) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
@@ -156,8 +164,8 @@ async function loadUserData() {
 		tradeSize = userData.tradeSize;
 		spread = userData.spread;
 		console.log("User data loaded successfully.");
-		console.log(`Token A: ${selectedTokenA}`);
-		console.log(`Token B: ${selectedTokenB}`);
+		console.log(colors.tokenA(`Token A: ${selectedTokenA}`));
+		console.log(colors.tokenB(`Token B: ${selectedTokenB}`));
 		console.log(`Trade size (Token A): ${tradeSize}`);
 		console.log(`Spread: ${spread}`);
 	} catch (error) {
@@ -446,9 +454,7 @@ async function initialize() {
 				selectedTokenA,
 				selectedTokenB,
 			);
-			initBalanceA = initialBalances.balanceA;
 			initUsdBalanceA = initialBalances.usdBalanceA;
-			initBalanceB = initialBalances.balanceB;
 			initUsdBalanceB = initialBalances.usdBalanceB;
 			initUsdTotalBalance = initUsdBalanceA + initUsdBalanceB;
 			console.log(
@@ -506,7 +512,7 @@ async function getBalance(
 	async function getTokenAndUSDCBalance(mintAddress, decimals) {
 		if (
 			!mintAddress ||
-			mintAddress === "So11111111111111111111111111111111111111112"
+			mintAddress === SOL_MINT_ADDRESS
 		) {
 			return getSOLBalanceAndUSDC();
 		}
@@ -562,10 +568,10 @@ async function getBalance(
 	);
 
 	console.log(
-		`Balance for Token A (${selectedTokenA}): ${resultA.balance}, $${resultA.usdBalance.toFixed(2)}`,
+		`Balance for Token A (${selectedTokenA}): ${resultA.balance}, $${resultA.usdBalance.toFixed(2)}`.tokenA,
 	);
 	console.log(
-		`Balance for Token B (${selectedTokenB}): ${resultB.balance}, $${resultB.usdBalance.toFixed(2)}`,
+		`Balance for Token B (${selectedTokenB}): ${resultB.balance}, $${resultB.usdBalance.toFixed(2)}`.tokenB,
 	);
 
 	if (resultA.balance === 0 || resultB.balance === 0) {
@@ -624,16 +630,19 @@ async function monitorPrice(
 
 			const response = await axios.get(quoteurl, { params: queryParams });
 			const newPrice = response.data.outAmount;
-			marketPercentageChange =
-				((newPrice - startPrice) / startPrice) * 100;
+			marketPercentageChange = ((newPrice - startPrice) / startPrice) * 100;
 			console.log(
-				`\nSell Price : ${sellInput / Math.pow(10, selectedDecimalsB)} ${selectedTokenB} For ${buyInput / Math.pow(10, selectedDecimalsA)} ${selectedTokenA}`,
+				`\nSell Price : ${colors.tokenB(sellInput / Math.pow(10, selectedDecimalsB))} ${colors.tokenB(selectedTokenB)} For ${colors.tokenA(buyInput / Math.pow(10, selectedDecimalsA))} ${colors.tokenA(selectedTokenA)}`,
 			);
 			console.log(
-				`Current Price : ${newPrice / Math.pow(10, selectedDecimalsB)} For ${buyInput / Math.pow(10, selectedDecimalsA)} ${selectedTokenA}`,
+				`Current Sell Price : ${colors.tokenB(newPrice / Math.pow(10, selectedDecimalsB))} For ${colors.tokenA(buyInput / Math.pow(10, selectedDecimalsA))} ${colors.tokenA(selectedTokenA)}`,
 			);
 			console.log(
-				`Buy Price : ${sellOutput / Math.pow(10, selectedDecimalsA)} ${selectedTokenA} For ${buyOutput / Math.pow(10, selectedDecimalsB)} ${selectedTokenB}\n`,
+				`Buy Price : ${colors.tokenA(sellOutput / Math.pow(10, selectedDecimalsA))} ${colors.tokenA(selectedTokenA)} For ${colors.tokenB(buyOutput / Math.pow(10, selectedDecimalsB))} ${colors.tokenB(selectedTokenB)}`,
+			);
+
+			console.log(
+				`Current Market Percentage: ${(marketPercentageChange > 0) ? colors.profit(`${marketPercentageChange.toFixed(5)}% \u{1F4C8}`) : colors.loss(`${marketPercentageChange.toFixed(5)}% \u{1F4C9}`)}\n`
 			);
 
 			await checkOpenOrders();
@@ -666,14 +675,14 @@ async function monitorPrice(
 			break; // Break the loop if we've successfully handled the price monitoring
 		} catch (error) {
 			console.error(
-				`Error: Connection or Token Data Error (Attempt ${retries + 1} of ${maxRetries})`,
+				`Error: Connection or Token Data Error (Attempt ${retries + 1} of ${maxRetries})`.error,
 			);
 			console.log(error);
 			retries++;
 
 			if (retries === maxRetries) {
 				console.error(
-					"Maximum number of retries reached. Unable to retrieve data.",
+					"Maximum number of retries reached. Unable to retrieve data.".error,
 				);
 				return null;
 			}
@@ -716,7 +725,7 @@ async function setOrders() {
 			await new Promise((resolve) => {
 				setTimeout(async () => {
 					try {
-						const transaction = await sendTx(
+						_ = await sendTx(
 							input,
 							output,
 							inputMint,
@@ -725,7 +734,7 @@ async function setOrders() {
 						);
 						resolve();
 					} catch (error) {
-						console.error("Error sending transaction:", error);
+						console.error("Error sending transaction:".error, error);
 						resolve(); // Resolve the promise even in case of an error to continue with the next transaction
 					}
 				}, delay);
@@ -733,7 +742,7 @@ async function setOrders() {
 		}
 
 		// Send the "buy" transactions
-		console.log("\u{1F4C9} Placing Buy Layer");
+		console.log(`\u{1F4C9} Placing Buy Layer ${colors.tokenA(selectedTokenA)} - ${colors.tokenB(selectedTokenB)}`);
 		await sendTransactionAsync(
 			buyInput,
 			buyOutput,
@@ -744,7 +753,7 @@ async function setOrders() {
 		);
 
 		// Send the "sell" transaction
-		console.log("\u{1F4C8} Placing Sell Layer");
+		console.log(`\u{1F4C8} Placing Sell Layer ${colors.tokenB(selectedTokenB)} - ${colors.tokenA(selectedTokenA)}`);
 		await sendTransactionAsync(
 			sellInput,
 			sellOutput,
@@ -770,7 +779,7 @@ async function setOrders() {
 			tradeSizeInLamports,
 		);
 	} catch (error) {
-		console.error("Error:", error);
+		console.error("Error:".error, error);
 	}
 }
 
@@ -813,7 +822,7 @@ async function sendTx(inAmount, outAmount, inputMint, outputMint, base) {
 
 			if (!response.ok) {
 				throw new Error(
-					`Failed to create order: ${response.statusText}`,
+					`Failed to create order: ${response.statusText}`.error,
 				);
 			}
 
